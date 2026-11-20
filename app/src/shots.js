@@ -1,6 +1,6 @@
 // Fixed scenes for screenshots: ?demo (or ?shot=1) auto-loads sample photos + a caption and renders the cover.
-// ?view=cover strips the UI so only the poster fills the window; ?layout=, ?preset=, ?caption=, ?kicker=,
-// ?size=WxH vary the scene. window.__shotReady is set once painted.
+// ?view=cover strips the UI so only the poster fills the window; ?layout=, ?caption=, ?kicker=, ?size=WxH
+// vary the scene. window.__shotReady is set once painted.
 
 export async function runShot(params, api) {
   if (params.get('view') === 'cover') document.body.classList.add('shot-cover');
@@ -13,9 +13,6 @@ export async function runShot(params, api) {
 
   const layout = params.get('layout');
   if (layout) api.setLayout(layout);
-
-  const preset = params.get('preset');
-  if (preset) api.setPreset(preset);
 
   const caption = params.get('caption');
   const kicker = params.get('kicker') ?? 'SUNSET CITY';
