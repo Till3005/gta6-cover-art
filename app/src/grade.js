@@ -23,7 +23,7 @@ export function photoLayer(photo, w, h, panel) {
 }
 
 /** Posterize + neon edge glow + chromatic shift, in place on `layer`, scaled by `amount` (0..1). */
-export function neonize(layer, amount, seed, edgeColors = { hi: [255, 96, 214], lo: [64, 216, 255] }) {
+export function neonize(layer, amount, seed) {
   const ctx = layer.getContext('2d');
   const { width: w, height: h } = layer;
   const img = ctx.getImageData(0, 0, w, h);
@@ -31,6 +31,8 @@ export function neonize(layer, amount, seed, edgeColors = { hi: [255, 96, 214], 
   const src = d.slice();
   const levels = Math.round(6 + (1 - amount) * 7);
   const step = 255 / (levels - 1);
+  const jitter = mulberry32(seed);
+  const hueFlip = jitter() < 0.5;
   const thr = 24;
   const gain = 1.2 * amount;
 
@@ -48,7 +50,9 @@ export function neonize(layer, amount, seed, edgeColors = { hi: [255, 96, 214], 
       const uLum = 0.299 * src[uy] + 0.587 * src[uy + 1] + 0.114 * src[uy + 2];
       const edge = Math.min(1, (Math.abs(lum - lLum) + Math.abs(lum - uLum) - thr) / 90) * gain;
       if (edge > 0) {
-        const neon = lum > 128 ? edgeColors.hi : edgeColors.lo;
+        const hi = hueFlip ? [255, 96, 214] : [110, 96, 255];
+        const lo = hueFlip ? [64, 216, 255] : [64, 255, 218];
+        const neon = lum > 128 ? hi : lo;
         const mix = edge * 0.8;
         r += (neon[0] - r) * mix;
         g += (neon[1] - g) * mix;
@@ -64,26 +68,21 @@ export function neonize(layer, amount, seed, edgeColors = { hi: [255, 96, 214], 
   return layer;
 }
 
-/** Burns the tint's sky grade into the panel using its gradient stops. */
-export function sunsetBurn(layer, amount, stops = null) {
+/** Burns the sunset grade into the panel: teal cast up top, magenta foot, warm glow at the horizon. */
+export function sunsetBurn(layer, amount) {
   const ctx = layer.getContext('2d');
   const { width: w, height: h } = layer;
-  if (amount <= 0) return layer;
-  const spec = stops ?? [
-    [0, 'rgba(40, 200, 255, 0.28)'],
-    [0.45, 'rgba(255, 120, 60, 0.10)'],
-    [0.78, 'rgba(255, 60, 150, 0.38)'],
-    [1, 'rgba(190, 30, 140, 0.46)'],
-  ];
   ctx.save();
   ctx.globalCompositeOperation = 'overlay';
-  ctx.globalAlpha = Math.min(1, amount);
+  ctx.globalAlpha = amount;
   const sky = ctx.createLinearGradient(0, 0, 0, h);
-  for (const [pos, color] of spec) sky.addColorStop(pos, color);
+  sky.addColorStop(0, 'rgba(40, 200, 255, 0.28)');
+  sky.addColorStop(0.45, 'rgba(255, 120, 60, 0.10)');
+  sky.addColorStop(0.78, 'rgba(255, 60, 150, 0.38)');
+  sky.addColorStop(1, 'rgba(190, 30, 140, 0.46)');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
   ctx.globalCompositeOperation = 'soft-light';
-  ctx.globalAlpha = Math.min(1, amount);
   ctx.fillStyle = 'rgba(255, 170, 90, 0.5)';
   ctx.fillRect(0, h * 0.55, w, h * 0.45);
   ctx.restore();

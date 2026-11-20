@@ -14,9 +14,6 @@ export async function runShot(params, api) {
   const layout = params.get('layout');
   if (layout) api.setLayout(layout);
 
-  const preset = params.get('preset');
-  if (preset) api.setPreset(preset);
-
   const caption = params.get('caption');
   const kicker = params.get('kicker') ?? 'SUNSET CITY';
   const scale = Number(params.get('scale'));
