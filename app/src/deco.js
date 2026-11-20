@@ -1,10 +1,21 @@
 // Hand-drawn scenery and finish: slatted sun, skyline, palm silhouettes with neon rim light, art-deco frame,
-// film grain and vignette. All paths are drawn here, no assets.
+// film grain and vignette. All paths are drawn here, no assets. Colors arrive from the preset tint that
+// cover.js passes down (sun spec, palm rim, skyline ink, edge pair), so nothing here hardcodes a look.
 
 import { mulberry32 } from './grade.js';
+import { rgba } from './presets.js';
 
-/** Slatted synthwave sun on its own canvas so the slats only cut the disc. */
-export function sunDisc(size, rim, core) {
+const DEFAULT_SUN = {
+  rim: 'rgba(255, 110, 170, 0.9)',
+  core: '#fff0c8',
+  fade: 'rgba(255, 90, 160, 0)',
+  disc: [[0, '#ffe9a8'], [0.5, '#ffb36b'], [1, '#ff4f9e']],
+};
+
+/** Slatted synthwave sun on its own canvas so the slats only cut the disc. `sun` is the tint's
+ * spec: { rim, core, fade, disc } — glow rim/core, outer fade color and the disc gradient stops. */
+export function sunDisc(size, sun = {}) {
+  const { rim, core, fade, disc } = { ...DEFAULT_SUN, ...sun };
   const c = document.createElement('canvas');
   c.width = size; c.height = size;
   const ctx = c.getContext('2d');
@@ -12,18 +23,16 @@ export function sunDisc(size, rim, core) {
   const glow = ctx.createRadialGradient(r, r, r * 0.1, r, r, r);
   glow.addColorStop(0, core);
   glow.addColorStop(0.55, rim);
-  glow.addColorStop(1, 'rgba(255, 90, 160, 0)');
+  glow.addColorStop(1, fade);
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, size, size);
   ctx.save();
   ctx.beginPath();
   ctx.arc(r, r, r * 0.72, 0, Math.PI * 2);
   ctx.clip();
-  const disc = ctx.createLinearGradient(0, r * 0.28, 0, r * 1.72);
-  disc.addColorStop(0, '#ffe9a8');
-  disc.addColorStop(0.5, '#ffb36b');
-  disc.addColorStop(1, '#ff4f9e');
-  ctx.fillStyle = disc;
+  const discGrad = ctx.createLinearGradient(0, r * 0.28, 0, r * 1.72);
+  for (const [pos, color] of disc) discGrad.addColorStop(pos, color);
+  ctx.fillStyle = discGrad;
   ctx.fillRect(0, 0, size, size);
   ctx.globalCompositeOperation = 'destination-out';
   let y = r * 1.02;
@@ -136,31 +145,37 @@ export function palm(ctx, x, baseY, height, lean, seed, color, rim) {
   ctx.restore();
 }
 
-/** Double art-deco border with diamond studs at the corners and mid-top. */
-export function decoFrame(ctx, w, h, inset) {
+/** Poster frame in the tint's edge colors: style 'deco' draws the double border with diamond studs,
+ * 'thin' a single line, 'none' skips; `amount` scales the deco detail down with the preset's intensity. */
+export function decoFrame(ctx, w, h, inset, style = 'deco', amount = 1, tint = null) {
+  if (style === 'none' || amount <= 0.05) return;
+  const edge = tint?.edge ?? { hi: [255, 95, 174], lo: [123, 226, 255] };
+  const mid = edge.hi.map((v, i) => Math.round((v + edge.lo[i]) / 2));
   const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, '#ffcf8a');
-  g.addColorStop(0.45, '#ff5fae');
-  g.addColorStop(0.75, '#7be2ff');
-  g.addColorStop(1, '#ffc86b');
+  g.addColorStop(0, rgba(edge.hi, 0.9));
+  g.addColorStop(0.5, rgba(mid, 0.9));
+  g.addColorStop(1, rgba(edge.lo, 0.9));
   ctx.save();
   ctx.strokeStyle = g;
   ctx.lineWidth = Math.max(2, w * 0.0022);
+  ctx.globalAlpha = Math.min(1, 0.55 + amount * 0.45);
   ctx.strokeRect(inset, inset, w - inset * 2, h - inset * 2);
-  ctx.globalAlpha = 0.55;
-  ctx.strokeRect(inset * 2.1, inset * 2.1, w - inset * 4.2, h - inset * 4.2);
-  ctx.globalAlpha = 1;
-  const dia = (cx, cy, r) => {
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy);
-    ctx.closePath();
-    ctx.fillStyle = g;
-    ctx.fill();
-  };
-  const r = Math.max(4, w * 0.006);
-  const o = inset;
-  dia(o, o, r); dia(w - o, o, r); dia(o, h - o, r); dia(w - o, h - o, r);
-  dia(w / 2, o, r * 1.4);
+  if (style === 'deco') {
+    ctx.globalAlpha = 0.55 * amount;
+    ctx.strokeRect(inset * 2.1, inset * 2.1, w - inset * 4.2, h - inset * 4.2);
+    ctx.globalAlpha = 1;
+    const dia = (cx, cy, r) => {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+    };
+    const r = Math.max(4, w * 0.006) * Math.min(1, amount);
+    const o = inset;
+    dia(o, o, r); dia(w - o, o, r); dia(o, h - o, r); dia(w - o, h - o, r);
+    dia(w / 2, o, r * 1.4);
+  }
   ctx.restore();
 }
 
@@ -210,7 +225,7 @@ export function placeholder(ctx, x, y, w, h, seed) {
   sky.addColorStop(1, '#ff8a4c');
   ctx.fillStyle = sky;
   ctx.fillRect(x, y, w, h);
-  const sun = sunDisc(Math.min(w, h) * 0.5, 'rgba(255, 120, 180, 0.8)', '#fff3c9');
+  const sun = sunDisc(Math.min(w, h) * 0.5, { rim: 'rgba(255, 120, 180, 0.8)', core: '#fff3c9' });
   ctx.drawImage(sun, x + w / 2 - sun.width / 2, y + h * 0.42 - sun.height / 2);
   skyline(ctx, x, y + h * 0.92, w, h * 0.14, seed, 'rgba(30, 2, 44, 0.9)');
   palm(ctx, x + w * 0.14, y + h * 0.94, h * 0.62, 0.16, seed, 'rgba(24, 1, 38, 0.95)', 'rgba(255, 95, 165, 0.5)');
