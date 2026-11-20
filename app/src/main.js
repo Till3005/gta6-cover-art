@@ -1,8 +1,10 @@
-// Wires the page: photos in, panels arranged, caption set, PNG out. Query params set up fixed scenes
-// (?demo or ?shot=... plus ?view=cover&layout=...&caption=...&size=WxH) for screenshots — ./shots.js.
+// Wires the page: photos in, panels arranged, layout + style preset picked, caption set, PNG out.
+// Query params set up fixed scenes (?demo or ?shot=... plus ?view=cover&layout=&preset=&caption=...&size=WxH)
+// for screenshots — ./shots.js.
 
 import { LAYOUTS, panelAt } from './layouts.js';
 import { makeState, renderPoster } from './cover.js';
+import { PRESETS, applyPreset, rgba } from './presets.js';
 import { proceduralPhoto } from './procedural.js';
 import { runShot } from './shots.js';
 
@@ -161,6 +163,41 @@ function setLayout(key) {
   render();
 }
 
+/* ---------- style presets ---------- */
+
+const presetRow = document.getElementById('presets');
+for (const [key, preset] of Object.entries(PRESETS)) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'chip swatch';
+  chip.dataset.preset = key;
+  const dot = document.createElement('i');
+  dot.style.background = rgba(preset.tint.edge.hi);
+  chip.append(dot, preset.label);
+  chip.addEventListener('click', () => setPreset(key));
+  presetRow.append(chip);
+}
+
+/** Pushes the state's current style onto the sliders/checkboxes/chips after a preset (or boot). */
+function syncStyleControls() {
+  const el = (id) => document.getElementById(id);
+  el('titleScale').value = Math.round(state.titleScale * 100);
+  el('titleColor').value = state.titleColor;
+  el('grade').value = Math.round(state.grade * 100);
+  el('grain').value = Math.round(state.grainAmt * 100);
+  el('vignette').value = Math.round(state.vignetteAmt * 100);
+  el('outline').checked = !!state.outline;
+  el('kickerOn').checked = state.kicker !== false;
+  el('frameOn').checked = state.frame !== 'none';
+  for (const chip of presetRow.children) chip.classList.toggle('on', chip.dataset.preset === state.preset);
+}
+
+function setPreset(key) {
+  applyPreset(state, key);
+  syncStyleControls();
+  render();
+}
+
 function syncCaption() {
   state.lines = captionBox.value.split('\n');
   render();
@@ -175,7 +212,7 @@ bind('grain', (e) => { state.grainAmt = e.target.value / 100; render(); });
 bind('vignette', (e) => { state.vignetteAmt = e.target.value / 100; render(); });
 bind('outline', (e) => { state.outline = e.target.checked; render(); });
 bind('kickerOn', (e) => { state.kicker = e.target.checked; render(); });
-bind('frameOn', (e) => { state.frame = e.target.checked; render(); });
+bind('frameOn', (e) => { state.frame = e.target.checked ? state.frameStyle : 'none'; render(); });
 
 bind('pZoom', (e) => { if (selected >= 0) { state.panels[selected].zoom = e.target.value / 100; render(); } });
 bind('pOx', (e) => { if (selected >= 0) { state.panels[selected].ox = +e.target.value; render(); } });
@@ -231,6 +268,7 @@ async function boot() {
   fitPanels();
   setLayout(state.layout);
   syncCaption();
+  syncStyleControls();
   render();
 
   const params = new URLSearchParams(location.search);
@@ -239,6 +277,7 @@ async function boot() {
     await runShot(params, {
       setRatio,
       setLayout,
+      setPreset,
       loadSamples,
       applyCaption(lines, opts) {
         captionBox.value = lines.join('\n');
