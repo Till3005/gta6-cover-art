@@ -1,7 +1,28 @@
-// Fixed scenes for screenshots: ?shot=editor shows the page with a sample photo; ?shot=cover shows the cover alone.
-// `photo` picks the sample (samples/<photo>.jpg) and `caption` the words. window.__shotReady is set once painted.
-export async function runShot(shot, query, load) {
-  if (shot === 'cover') document.body.classList.add('shot-cover');
-  await load(`samples/${query.get('photo') ?? 'pier'}.jpg`, query.get('caption') ?? 'Sunset Heist');
-  requestAnimationFrame(() => requestAnimationFrame(() => { window.__shotReady = true; }));
+// Fixed scenes for screenshots: ?demo (or ?shot=1) auto-loads sample photos + a caption and renders the cover.
+// ?view=cover strips the UI so only the poster fills the window; ?layout=, ?caption=, ?kicker=, ?size=WxH
+// vary the scene. window.__shotReady is set once painted.
+
+export async function runShot(params, api) {
+  if (params.get('view') === 'cover') document.body.classList.add('shot-cover');
+
+  const size = params.get('size');
+  if (size) {
+    const [w, h] = size.split('x').map(Number);
+    if (w > 0 && h > 0) api.setRatio(w, h);
+  }
+
+  const layout = params.get('layout');
+  if (layout) api.setLayout(layout);
+
+  const caption = params.get('caption');
+  const kicker = params.get('kicker') ?? 'SUNSET CITY';
+  const scale = Number(params.get('scale'));
+  const lines = [];
+  if (kicker) lines.push(kicker);
+  lines.push(caption ?? 'VICE NIGHTS');
+  api.applyCaption(lines, { titleScale: Number.isFinite(scale) && scale > 0 ? Math.min(1.5, scale / 100) : undefined });
+
+  await api.loadSamples();
+  api.render();
+  api.done();
 }
