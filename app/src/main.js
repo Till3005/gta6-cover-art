@@ -3,6 +3,7 @@
 
 import { LAYOUTS, panelAt } from './layouts.js';
 import { makeState, renderPoster } from './cover.js';
+import { PRESETS, applyPreset } from './presets.js';
 import { proceduralPhoto } from './procedural.js';
 import { runShot } from './shots.js';
 
@@ -161,6 +162,38 @@ function setLayout(key) {
   render();
 }
 
+/* ---------- style presets ---------- */
+
+const presetRow = document.getElementById('presets');
+for (const [key, def] of Object.entries(PRESETS)) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'chip';
+  chip.textContent = def.label;
+  chip.dataset.preset = key;
+  chip.addEventListener('click', () => setPreset(key));
+  presetRow.append(chip);
+}
+
+function syncStyleControls() {
+  const g = (id) => document.getElementById(id);
+  g('titleScale').value = state.titleScale * 100;
+  g('titleColor').value = state.titleColor;
+  g('grade').value = Math.round(state.grade * 100);
+  g('grain').value = Math.round(state.grainAmt * 100);
+  g('vignette').value = Math.round(state.vignetteAmt * 100);
+  g('outline').checked = !!state.outline;
+  g('kickerOn').checked = state.kicker !== false;
+  g('frameOn').checked = state.frame !== 'none';
+  for (const chip of presetRow.children) chip.classList.toggle('on', chip.dataset.preset === state.preset);
+}
+
+function setPreset(key) {
+  applyPreset(state, key);
+  syncStyleControls();
+  render();
+}
+
 function syncCaption() {
   state.lines = captionBox.value.split('\n');
   render();
@@ -175,7 +208,7 @@ bind('grain', (e) => { state.grainAmt = e.target.value / 100; render(); });
 bind('vignette', (e) => { state.vignetteAmt = e.target.value / 100; render(); });
 bind('outline', (e) => { state.outline = e.target.checked; render(); });
 bind('kickerOn', (e) => { state.kicker = e.target.checked; render(); });
-bind('frameOn', (e) => { state.frame = e.target.checked; render(); });
+bind('frameOn', (e) => { state.frame = e.target.checked ? (state.frame === 'none' ? 'deco' : state.frame) : 'none'; render(); });
 
 bind('pZoom', (e) => { if (selected >= 0) { state.panels[selected].zoom = e.target.value / 100; render(); } });
 bind('pOx', (e) => { if (selected >= 0) { state.panels[selected].ox = +e.target.value; render(); } });
@@ -231,6 +264,7 @@ async function boot() {
   fitPanels();
   setLayout(state.layout);
   syncCaption();
+  syncStyleControls();
   render();
 
   const params = new URLSearchParams(location.search);
@@ -239,6 +273,7 @@ async function boot() {
     await runShot(params, {
       setRatio,
       setLayout,
+      setPreset,
       loadSamples,
       applyCaption(lines, opts) {
         captionBox.value = lines.join('\n');

@@ -136,8 +136,9 @@ export function palm(ctx, x, baseY, height, lean, seed, color, rim) {
   ctx.restore();
 }
 
-/** Double art-deco border with diamond studs at the corners and mid-top. */
-export function decoFrame(ctx, w, h, inset) {
+/** Poster frame: 'deco' double border with diamond studs, 'thin' single line, anything else skips. */
+export function decoFrame(ctx, w, h, inset, style = 'deco', amount = 1) {
+  if (style === 'none' || amount <= 0.05) return;
   const g = ctx.createLinearGradient(0, 0, w, h);
   g.addColorStop(0, '#ffcf8a');
   g.addColorStop(0.45, '#ff5fae');
@@ -146,21 +147,24 @@ export function decoFrame(ctx, w, h, inset) {
   ctx.save();
   ctx.strokeStyle = g;
   ctx.lineWidth = Math.max(2, w * 0.0022);
+  ctx.globalAlpha = Math.min(1, 0.55 + amount * 0.45);
   ctx.strokeRect(inset, inset, w - inset * 2, h - inset * 2);
-  ctx.globalAlpha = 0.55;
-  ctx.strokeRect(inset * 2.1, inset * 2.1, w - inset * 4.2, h - inset * 4.2);
-  ctx.globalAlpha = 1;
-  const dia = (cx, cy, r) => {
-    ctx.beginPath();
-    ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy);
-    ctx.closePath();
-    ctx.fillStyle = g;
-    ctx.fill();
-  };
-  const r = Math.max(4, w * 0.006);
-  const o = inset;
-  dia(o, o, r); dia(w - o, o, r); dia(o, h - o, r); dia(w - o, h - o, r);
-  dia(w / 2, o, r * 1.4);
+  if (style === 'deco') {
+    ctx.globalAlpha = 0.55 * amount;
+    ctx.strokeRect(inset * 2.1, inset * 2.1, w - inset * 4.2, h - inset * 4.2);
+    ctx.globalAlpha = 1;
+    const dia = (cx, cy, r) => {
+      ctx.beginPath();
+      ctx.moveTo(cx, cy - r); ctx.lineTo(cx + r, cy); ctx.lineTo(cx, cy + r); ctx.lineTo(cx - r, cy);
+      ctx.closePath();
+      ctx.fillStyle = g;
+      ctx.fill();
+    };
+    const r = Math.max(4, w * 0.006) * Math.min(1, amount);
+    const o = inset;
+    dia(o, o, r); dia(w - o, o, r); dia(o, h - o, r); dia(w - o, h - o, r);
+    dia(w / 2, o, r * 1.4);
+  }
   ctx.restore();
 }
 
