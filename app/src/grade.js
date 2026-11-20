@@ -22,10 +22,8 @@ export function photoLayer(photo, w, h, panel) {
   return c;
 }
 
-/** Posterize + neon edge glow + chromatic shift, in place on `layer`, scaled by `amount` (0..1).
- * `edge` is the preset tint's neon pair { hi, lo }; the seed still flips which tone hits which
- * luminance side, so panels keep their per-panel variety and "Reshuffle grade" keeps working. */
-export function neonize(layer, amount, seed, edge = { hi: [255, 96, 214], lo: [64, 216, 255] }) {
+/** Posterize + neon edge glow + chromatic shift, in place on `layer`, scaled by `amount` (0..1). */
+export function neonize(layer, amount, seed) {
   const ctx = layer.getContext('2d');
   const { width: w, height: h } = layer;
   const img = ctx.getImageData(0, 0, w, h);
@@ -33,9 +31,8 @@ export function neonize(layer, amount, seed, edge = { hi: [255, 96, 214], lo: [6
   const src = d.slice();
   const levels = Math.round(6 + (1 - amount) * 7);
   const step = 255 / (levels - 1);
-  const flip = mulberry32(seed)() < 0.5;
-  const hi = flip ? edge.lo : edge.hi;
-  const lo = flip ? edge.hi : edge.lo;
+  const jitter = mulberry32(seed);
+  const hueFlip = jitter() < 0.5;
   const thr = 24;
   const gain = 1.2 * amount;
 
@@ -51,10 +48,12 @@ export function neonize(layer, amount, seed, edge = { hi: [255, 96, 214], lo: [6
       const lum = 0.299 * r + 0.587 * g + 0.114 * b;
       const lLum = 0.299 * src[lx] + 0.587 * src[lx + 1] + 0.114 * src[lx + 2];
       const uLum = 0.299 * src[uy] + 0.587 * src[uy + 1] + 0.114 * src[uy + 2];
-      const strength = Math.min(1, (Math.abs(lum - lLum) + Math.abs(lum - uLum) - thr) / 90) * gain;
-      if (strength > 0) {
+      const edge = Math.min(1, (Math.abs(lum - lLum) + Math.abs(lum - uLum) - thr) / 90) * gain;
+      if (edge > 0) {
+        const hi = hueFlip ? [255, 96, 214] : [110, 96, 255];
+        const lo = hueFlip ? [64, 216, 255] : [64, 255, 218];
         const neon = lum > 128 ? hi : lo;
-        const mix = strength * 0.8;
+        const mix = edge * 0.8;
         r += (neon[0] - r) * mix;
         g += (neon[1] - g) * mix;
         b += (neon[2] - b) * mix;
@@ -69,27 +68,22 @@ export function neonize(layer, amount, seed, edge = { hi: [255, 96, 214], lo: [6
   return layer;
 }
 
-/** Burns the preset tint's sky grade into the panel from its gradient stops, then a soft-light
- * horizon glow in the tint's burnGlow. Falls back to the original sunset stops when no tint is given. */
-export function sunsetBurn(layer, amount, tint = null) {
+/** Burns the sunset grade into the panel: teal cast up top, magenta foot, warm glow at the horizon. */
+export function sunsetBurn(layer, amount) {
   const ctx = layer.getContext('2d');
   const { width: w, height: h } = layer;
-  if (amount <= 0) return layer;
-  const stops = tint?.burn ?? [
-    [0, 'rgba(40, 200, 255, 0.28)'],
-    [0.45, 'rgba(255, 120, 60, 0.10)'],
-    [0.78, 'rgba(255, 60, 150, 0.38)'],
-    [1, 'rgba(190, 30, 140, 0.46)'],
-  ];
   ctx.save();
   ctx.globalCompositeOperation = 'overlay';
-  ctx.globalAlpha = Math.min(1, amount);
+  ctx.globalAlpha = amount;
   const sky = ctx.createLinearGradient(0, 0, 0, h);
-  for (const [pos, color] of stops) sky.addColorStop(pos, color);
+  sky.addColorStop(0, 'rgba(40, 200, 255, 0.28)');
+  sky.addColorStop(0.45, 'rgba(255, 120, 60, 0.10)');
+  sky.addColorStop(0.78, 'rgba(255, 60, 150, 0.38)');
+  sky.addColorStop(1, 'rgba(190, 30, 140, 0.46)');
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
   ctx.globalCompositeOperation = 'soft-light';
-  ctx.fillStyle = tint?.burnGlow ?? 'rgba(255, 170, 90, 0.5)';
+  ctx.fillStyle = 'rgba(255, 170, 90, 0.5)';
   ctx.fillRect(0, h * 0.55, w, h * 0.45);
   ctx.restore();
   return layer;

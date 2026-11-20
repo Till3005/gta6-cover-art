@@ -37,7 +37,6 @@ export function drawCaption(ctx, x, footY, targetW, lines, opts) {
   const kicker = opts.kicker !== false ? text.slice(0, -1) : [];
   const title = text[text.length - 1].toUpperCase();
   const unit = Math.min(targetW * 0.075, ctx.canvas.height * 0.16) * (opts.titleScale ?? 1);
-  const cap = opts.presetTint?.caption ?? {};
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -50,11 +49,12 @@ export function drawCaption(ctx, x, footY, targetW, lines, opts) {
   ctx.shadowOffsetY = unit * 0.09;
   ctx.lineJoin = 'round';
   ctx.lineWidth = (opts.outline !== false ? unit * 0.1 : 0) / 1.22;
-  ctx.strokeStyle = opts.outlineColor ?? cap.outline ?? '#26013e';
+  ctx.strokeStyle = '#26013e';
   const fill = ctx.createLinearGradient(0, footY - titleSize * 1.3, 0, footY);
   fill.addColorStop(0, '#ffffff');
-  fill.addColorStop(0.42, opts.color ?? opts.titleColor ?? cap.fill ?? '#ffd9f2');
-  fill.addColorStop(1, opts.fillGlow ?? cap.glow ?? '#ff2fa0');
+  fill.addColorStop(0.35, opts.color ?? '#ffd9f2');
+  fill.addColorStop(0.75, '#ff64b8');
+  fill.addColorStop(1, '#ff2fa0');
   ctx.fillStyle = fill;
   drawTitle(ctx, title, x + targetW / 2, footY, titleSize, targetW * 0.97);
   ctx.restore();
@@ -73,7 +73,7 @@ export function drawCaption(ctx, x, footY, targetW, lines, opts) {
     ctx.translate(x + targetW / 2, ky);
     ctx.scale(sx, 1);
     ctx.fillStyle = '#ffe9f6';
-    ctx.strokeStyle = opts.outlineColor ?? cap.outline ?? '#26013e';
+    ctx.strokeStyle = '#26013e';
     ctx.lineWidth = kSize * 0.17;
     ctx.lineJoin = 'round';
     ctx.shadowColor = 'rgba(20, 0, 40, 0.8)';

@@ -158,9 +158,6 @@ textarea:focus, .btn:focus-visible { outline: 2px solid var(--pink); }
 
 .chip.on { background: linear-gradient(180deg, var(--hot), var(--pink)); color: #fff; border-color: transparent; }
 
-.chip.swatch { display: inline-flex; align-items: center; gap: 7px; }
-.chip.swatch i { width: 10px; height: 10px; border-radius: 50%; flex: none; box-shadow: 0 0 7px rgba(255, 255, 255, 0.35); }
-
 .exports { display: flex; flex-direction: column; gap: 7px; }
 .exports .btn { width: 100%; font-family: inherit; }
 
