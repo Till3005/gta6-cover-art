@@ -5,21 +5,18 @@ import { LAYOUTS, panelRect } from './layouts.js';
 import { photoLayer, neonize, sunsetBurn } from './grade.js';
 import { sunDisc, skyline, palm, decoFrame, grain, vignette, placeholder } from './deco.js';
 import { drawCaption, captionHeight } from './caption.js';
+import { applyPreset } from './presets.js';
 
 export function makeState() {
-  return {
+  const state = {
     layout: 'hero',
     lines: ['SUNSET CITY', 'VICE NIGHTS'],
-    titleScale: 1,
     titleColor: '#ffd9f2',
     outline: true,
     kicker: true,
-    grade: 0.72,
-    grainAmt: 0.55,
-    vignetteAmt: 0.55,
-    frame: true,
     panels: [],
   };
+  return applyPreset(state, 'sunset');
 }
 
 export function renderPoster(canvas, state, selected = -1) {
@@ -32,11 +29,12 @@ export function renderPoster(canvas, state, selected = -1) {
   const footY = h - inset * 2.6;
   const targetW = w - inset * 2;
 
+  const tint = state.presetTint ?? {};
+
   const backdrop = ctx.createLinearGradient(0, 0, 0, h);
-  backdrop.addColorStop(0, '#160026');
-  backdrop.addColorStop(0.45, '#42074e');
-  backdrop.addColorStop(0.75, '#a31b63');
-  backdrop.addColorStop(1, '#ff6a3d');
+  for (const [at, color] of tint.backdrop ?? [[0, '#160026'], [0.45, '#42074e'], [0.75, '#a31b63'], [1, '#ff6a3d']]) {
+    backdrop.addColorStop(at, color);
+  }
   ctx.fillStyle = backdrop;
   ctx.fillRect(0, 0, w, h);
 
@@ -49,48 +47,48 @@ export function renderPoster(canvas, state, selected = -1) {
     const panel = state.panels[i] ?? {};
     if (panel.photo) {
       const layer = photoLayer(panel.photo, Math.round(r.w), Math.round(r.h), panel);
-      neonize(layer, state.grade, panel.seed ?? i * 977 + 13);
-      sunsetBurn(layer, state.grade * 0.85);
+      neonize(layer, state.grade, panel.seed ?? i * 977 + 13, tint);
+      sunsetBurn(layer, state.grade * 0.85, tint);
       ctx.drawImage(layer, r.x, r.y);
-      panelBorder(ctx, r);
+      panelBorder(ctx, r, tint.deco);
     } else {
-      placeholder(ctx, r.x, r.y, r.w, r.h, i * 311 + 7);
+      placeholder(ctx, r.x, r.y, r.w, r.h, i * 311 + 7, tint);
     }
     if (i === selected) selectionBox(ctx, r);
   }
 
   const scrim = ctx.createLinearGradient(0, bandTop - h * 0.1, 0, h);
-  scrim.addColorStop(0, 'rgba(24, 0, 44, 0)');
-  scrim.addColorStop(0.45, 'rgba(24, 0, 44, 0.66)');
-  scrim.addColorStop(1, 'rgba(16, 0, 32, 0.97)');
+  const scrimStops = tint.scrim ?? ['rgba(24, 0, 44, 0)', 'rgba(24, 0, 44, 0.66)', 'rgba(16, 0, 32, 0.97)'];
+  scrimStops.forEach((color, i) => scrim.addColorStop(i / (scrimStops.length - 1), color));
   ctx.fillStyle = scrim;
   ctx.fillRect(0, bandTop - h * 0.1, w, h - bandTop + h * 0.1);
 
-  const sun = sunDisc(Math.min(w, h) * 0.42, 'rgba(255, 110, 170, 0.9)', '#fff0c8');
+  const sun = sunDisc(Math.min(w, h) * 0.42, tint.sun?.rim ?? 'rgba(255, 110, 170, 0.9)', tint.sun?.core ?? '#fff0c8', tint.sun?.fade);
   ctx.save();
   ctx.globalAlpha = 0.9;
   ctx.drawImage(sun, w / 2 - sun.width / 2, footY - bandH * 0.98 - sun.height / 2);
   ctx.restore();
 
-  skyline(ctx, 0, footY + 2, w, h * 0.07, 4242, 'rgba(28, 2, 46, 0.95)');
+  skyline(ctx, 0, footY + 2, w, h * 0.07, 4242, tint.skylineInk ?? 'rgba(28, 2, 46, 0.95)', tint.windows);
   const palmH = h * 0.3;
-  palm(ctx, inset * 2.2, footY + 4, palmH, 0.22, 11, 'rgba(16, 0, 30, 0.96)', 'rgba(255, 95, 165, 0.55)');
-  palm(ctx, w - inset * 2.2, footY + 4, palmH * 1.12, -0.18, 29, 'rgba(16, 0, 30, 0.96)', 'rgba(110, 230, 255, 0.4)');
+  const palmInk = tint.palmInk ?? 'rgba(16, 0, 30, 0.96)';
+  const [rimA, rimB] = tint.palmRim ?? ['rgba(255, 95, 165, 0.55)', 'rgba(110, 230, 255, 0.4)'];
+  palm(ctx, inset * 2.2, footY + 4, palmH, 0.22, 11, palmInk, rimA);
+  palm(ctx, w - inset * 2.2, footY + 4, palmH * 1.12, -0.18, 29, palmInk, rimB ?? rimA);
 
   drawCaption(ctx, inset, footY, targetW, state.lines, state);
 
-  if (state.frame) decoFrame(ctx, w, h, inset);
+  if (state.frame) decoFrame(ctx, w, h, inset, tint.deco);
   grain(ctx, w, h, state.grainAmt);
   vignette(ctx, w, h, state.vignetteAmt);
   return canvas;
 }
 
-function panelBorder(ctx, r) {
+function panelBorder(ctx, r, stops = ['#ffcf8a', '#ff5fae', '#7be2ff', '#ffc86b']) {
   ctx.save();
   const g = ctx.createLinearGradient(r.x, r.y, r.x + r.w, r.y + r.h);
-  g.addColorStop(0, 'rgba(255, 207, 138, 0.9)');
-  g.addColorStop(0.5, 'rgba(255, 95, 174, 0.9)');
-  g.addColorStop(1, 'rgba(123, 226, 255, 0.9)');
+  const at = [0, 0.5, 1];
+  stops.forEach((color, i) => g.addColorStop(at[i] ?? 1, color));
   ctx.strokeStyle = g;
   ctx.lineWidth = Math.max(1.5, r.w * 0.004);
   ctx.strokeRect(r.x + 2, r.y + 2, r.w - 4, r.h - 4);

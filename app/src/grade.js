@@ -23,7 +23,7 @@ export function photoLayer(photo, w, h, panel) {
 }
 
 /** Posterize + neon edge glow + chromatic shift, in place on `layer`, scaled by `amount` (0..1). */
-export function neonize(layer, amount, seed) {
+export function neonize(layer, amount, seed, tint = {}) {
   const ctx = layer.getContext('2d');
   const { width: w, height: h } = layer;
   const img = ctx.getImageData(0, 0, w, h);
@@ -34,6 +34,8 @@ export function neonize(layer, amount, seed) {
   const jitter = mulberry32(seed);
   const hueFlip = jitter() < 0.5;
   const thr = 24;
+  const tintHi = tint.edgeHi ?? [255, 96, 214];
+  const tintLo = tint.edgeLo ?? [64, 216, 255];
   const gain = 1.2 * amount;
 
   for (let y = 0; y < h; y++) {
@@ -50,8 +52,8 @@ export function neonize(layer, amount, seed) {
       const uLum = 0.299 * src[uy] + 0.587 * src[uy + 1] + 0.114 * src[uy + 2];
       const edge = Math.min(1, (Math.abs(lum - lLum) + Math.abs(lum - uLum) - thr) / 90) * gain;
       if (edge > 0) {
-        const hi = hueFlip ? [255, 96, 214] : [110, 96, 255];
-        const lo = hueFlip ? [64, 216, 255] : [64, 255, 218];
+        const hi = hueFlip ? tintHi : tintLo;
+        const lo = hueFlip ? tintLo : tintHi;
         const neon = lum > 128 ? hi : lo;
         const mix = edge * 0.8;
         r += (neon[0] - r) * mix;
@@ -68,22 +70,25 @@ export function neonize(layer, amount, seed) {
   return layer;
 }
 
-/** Burns the sunset grade into the panel: teal cast up top, magenta foot, warm glow at the horizon. */
-export function sunsetBurn(layer, amount) {
+/** Burns the preset grade into the panel: `tint.burn` gradient + warm soft-light glow at the horizon. */
+export function sunsetBurn(layer, amount, tint = {}) {
   const ctx = layer.getContext('2d');
   const { width: w, height: h } = layer;
+  const stops = tint.burn ?? [
+    [0, 'rgba(40, 200, 255, 0.28)'],
+    [0.45, 'rgba(255, 120, 60, 0.10)'],
+    [0.78, 'rgba(255, 60, 150, 0.38)'],
+    [1, 'rgba(190, 30, 140, 0.46)'],
+  ];
   ctx.save();
   ctx.globalCompositeOperation = 'overlay';
   ctx.globalAlpha = amount;
   const sky = ctx.createLinearGradient(0, 0, 0, h);
-  sky.addColorStop(0, 'rgba(40, 200, 255, 0.28)');
-  sky.addColorStop(0.45, 'rgba(255, 120, 60, 0.10)');
-  sky.addColorStop(0.78, 'rgba(255, 60, 150, 0.38)');
-  sky.addColorStop(1, 'rgba(190, 30, 140, 0.46)');
+  for (const [at, color] of stops) sky.addColorStop(at, color);
   ctx.fillStyle = sky;
   ctx.fillRect(0, 0, w, h);
   ctx.globalCompositeOperation = 'soft-light';
-  ctx.fillStyle = 'rgba(255, 170, 90, 0.5)';
+  ctx.fillStyle = tint.warm ?? 'rgba(255, 170, 90, 0.5)';
   ctx.fillRect(0, h * 0.55, w, h * 0.45);
   ctx.restore();
   return layer;

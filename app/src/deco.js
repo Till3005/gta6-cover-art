@@ -4,7 +4,7 @@
 import { mulberry32 } from './grade.js';
 
 /** Slatted synthwave sun on its own canvas so the slats only cut the disc. */
-export function sunDisc(size, rim, core) {
+export function sunDisc(size, rim, core, fade = 'rgba(255, 90, 160, 0)') {
   const c = document.createElement('canvas');
   c.width = size; c.height = size;
   const ctx = c.getContext('2d');
@@ -12,7 +12,7 @@ export function sunDisc(size, rim, core) {
   const glow = ctx.createRadialGradient(r, r, r * 0.1, r, r, r);
   glow.addColorStop(0, core);
   glow.addColorStop(0.55, rim);
-  glow.addColorStop(1, 'rgba(255, 90, 160, 0)');
+  glow.addColorStop(1, fade);
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, size, size);
   ctx.save();
@@ -37,8 +37,8 @@ export function sunDisc(size, rim, core) {
   return c;
 }
 
-/** Skyline strip along the bottom; sparse neon windows. */
-export function skyline(ctx, x0, yBase, w, maxH, seed, color) {
+/** Skyline strip along the bottom; sparse neon windows in `windows` colors. */
+export function skyline(ctx, x0, yBase, w, maxH, seed, color, windows = ['rgba(255, 120, 210, 0.8)', 'rgba(90, 230, 255, 0.8)']) {
   const rnd = mulberry32(seed);
   ctx.save();
   ctx.fillStyle = color;
@@ -50,7 +50,7 @@ export function skyline(ctx, x0, yBase, w, maxH, seed, color) {
     if (rnd() < 0.3) ctx.fillRect(x + bw * 0.4, yBase - bh - maxH * 0.18, bw * 0.08, maxH * 0.18);
     const wins = Math.floor(rnd() * 5);
     for (let i = 0; i < wins; i++) {
-      ctx.fillStyle = rnd() < 0.5 ? 'rgba(255, 120, 210, 0.8)' : 'rgba(90, 230, 255, 0.8)';
+      ctx.fillStyle = windows[rnd() < 0.5 ? 0 : 1];
       ctx.fillRect(x + bw * (0.15 + rnd() * 0.7), yBase - bh * (0.15 + rnd() * 0.7), Math.max(1.5, bw * 0.05), Math.max(1.5, bw * 0.05));
       ctx.fillStyle = color;
     }
@@ -136,13 +136,11 @@ export function palm(ctx, x, baseY, height, lean, seed, color, rim) {
   ctx.restore();
 }
 
-/** Double art-deco border with diamond studs at the corners and mid-top. */
-export function decoFrame(ctx, w, h, inset) {
+/** Double art-deco border with diamond studs at the corners and mid-top, in `stops` colors. */
+export function decoFrame(ctx, w, h, inset, stops = ['#ffcf8a', '#ff5fae', '#7be2ff', '#ffc86b']) {
   const g = ctx.createLinearGradient(0, 0, w, h);
-  g.addColorStop(0, '#ffcf8a');
-  g.addColorStop(0.45, '#ff5fae');
-  g.addColorStop(0.75, '#7be2ff');
-  g.addColorStop(1, '#ffc86b');
+  const at = [0, 0.36, 0.72, 1];
+  stops.forEach((color, i) => g.addColorStop(at[i] ?? 1, color));
   ctx.save();
   ctx.strokeStyle = g;
   ctx.lineWidth = Math.max(2, w * 0.0022);
@@ -198,22 +196,20 @@ export function vignette(ctx, w, h, amount) {
 }
 
 /** Fills an empty slot with its own little poster: sky, slat sun, one palm, dashed frame. */
-export function placeholder(ctx, x, y, w, h, seed) {
+export function placeholder(ctx, x, y, w, h, seed, tint = {}) {
   ctx.save();
   ctx.beginPath();
   ctx.rect(x, y, w, h);
   ctx.clip();
+  const stops = tint.backdrop ?? [[0, '#2a0540'], [0.55, '#7a1058'], [0.8, '#e8437a'], [1, '#ff8a4c']];
   const sky = ctx.createLinearGradient(0, y, 0, y + h);
-  sky.addColorStop(0, '#2a0540');
-  sky.addColorStop(0.55, '#7a1058');
-  sky.addColorStop(0.8, '#e8437a');
-  sky.addColorStop(1, '#ff8a4c');
+  for (const [at, color] of stops) sky.addColorStop(at, color);
   ctx.fillStyle = sky;
   ctx.fillRect(x, y, w, h);
-  const sun = sunDisc(Math.min(w, h) * 0.5, 'rgba(255, 120, 180, 0.8)', '#fff3c9');
+  const sun = sunDisc(Math.min(w, h) * 0.5, tint.sun?.rim ?? 'rgba(255, 120, 180, 0.8)', tint.sun?.core ?? '#fff3c9', tint.sun?.fade);
   ctx.drawImage(sun, x + w / 2 - sun.width / 2, y + h * 0.42 - sun.height / 2);
-  skyline(ctx, x, y + h * 0.92, w, h * 0.14, seed, 'rgba(30, 2, 44, 0.9)');
-  palm(ctx, x + w * 0.14, y + h * 0.94, h * 0.62, 0.16, seed, 'rgba(24, 1, 38, 0.95)', 'rgba(255, 95, 165, 0.5)');
+  skyline(ctx, x, y + h * 0.92, w, h * 0.14, seed, tint.skylineInk ?? 'rgba(30, 2, 44, 0.9)', tint.windows);
+  palm(ctx, x + w * 0.14, y + h * 0.94, h * 0.62, 0.16, seed, tint.palmInk ?? 'rgba(24, 1, 38, 0.95)', (tint.palmRim ?? ['rgba(255, 95, 165, 0.5)'])[0]);
   ctx.restore();
   ctx.save();
   ctx.setLineDash([w * 0.03, w * 0.02]);

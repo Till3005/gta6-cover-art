@@ -158,6 +158,16 @@ textarea:focus, .btn:focus-visible { outline: 2px solid var(--pink); }
 
 .chip.on { background: linear-gradient(180deg, var(--hot), var(--pink)); color: #fff; border-color: transparent; }
 
+.chip .dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: -1px;
+  box-shadow: 0 0 7px rgba(255, 255, 255, 0.35), inset 0 0 2px rgba(0, 0, 0, 0.4);
+}
+
 .exports { display: flex; flex-direction: column; gap: 7px; }
 .exports .btn { width: 100%; font-family: inherit; }
 

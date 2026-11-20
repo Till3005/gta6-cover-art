@@ -37,6 +37,7 @@ export function drawCaption(ctx, x, footY, targetW, lines, opts) {
   const kicker = opts.kicker !== false ? text.slice(0, -1) : [];
   const title = text[text.length - 1].toUpperCase();
   const unit = Math.min(targetW * 0.075, ctx.canvas.height * 0.16) * (opts.titleScale ?? 1);
+  const tint = opts.presetTint ?? {};
 
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
@@ -44,17 +45,15 @@ export function drawCaption(ctx, x, footY, targetW, lines, opts) {
   const titleSize = titleSizeFor(ctx, title, targetW, unit);
 
   ctx.save();
-  ctx.shadowColor = 'rgba(20, 0, 40, 0.85)';
+  ctx.shadowColor = tint.captionGlow ?? 'rgba(20, 0, 40, 0.85)';
   ctx.shadowBlur = unit * 0.22;
   ctx.shadowOffsetY = unit * 0.09;
   ctx.lineJoin = 'round';
   ctx.lineWidth = (opts.outline !== false ? unit * 0.1 : 0) / 1.22;
-  ctx.strokeStyle = '#26013e';
+  ctx.strokeStyle = tint.captionOutline ?? '#26013e';
+  const stops = tint.captionFill ?? ['#ffffff', opts.color ?? '#ffd9f2', '#ff64b8', '#ff2fa0'];
   const fill = ctx.createLinearGradient(0, footY - titleSize * 1.3, 0, footY);
-  fill.addColorStop(0, '#ffffff');
-  fill.addColorStop(0.35, opts.color ?? '#ffd9f2');
-  fill.addColorStop(0.75, '#ff64b8');
-  fill.addColorStop(1, '#ff2fa0');
+  stops.forEach((color, i) => fill.addColorStop(i / (stops.length - 1), color));
   ctx.fillStyle = fill;
   drawTitle(ctx, title, x + targetW / 2, footY, titleSize, targetW * 0.97);
   ctx.restore();
@@ -72,11 +71,11 @@ export function drawCaption(ctx, x, footY, targetW, lines, opts) {
     const sx = Math.min(1.25, Math.max(0.7, (targetW * 0.58) / Math.max(1, width)));
     ctx.translate(x + targetW / 2, ky);
     ctx.scale(sx, 1);
-    ctx.fillStyle = '#ffe9f6';
-    ctx.strokeStyle = '#26013e';
+    ctx.fillStyle = tint.kickerFill ?? '#ffe9f6';
+    ctx.strokeStyle = tint.captionOutline ?? '#26013e';
     ctx.lineWidth = kSize * 0.17;
     ctx.lineJoin = 'round';
-    ctx.shadowColor = 'rgba(20, 0, 40, 0.8)';
+    ctx.shadowColor = tint.captionGlow ?? 'rgba(20, 0, 40, 0.8)';
     ctx.shadowBlur = kSize * 0.3;
     ctx.shadowOffsetY = kSize * 0.1;
     ctx.strokeText(line, -width / 2, 0);

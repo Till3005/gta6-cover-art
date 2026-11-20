@@ -3,6 +3,7 @@
 
 import { LAYOUTS, panelAt } from './layouts.js';
 import { makeState, renderPoster } from './cover.js';
+import { PRESETS, applyPreset } from './presets.js';
 import { proceduralPhoto } from './procedural.js';
 import { runShot } from './shots.js';
 
@@ -161,15 +162,61 @@ function setLayout(key) {
   render();
 }
 
+const presetRow = document.getElementById('presets');
+for (const [key, def] of Object.entries(PRESETS)) {
+  const chip = document.createElement('button');
+  chip.type = 'button';
+  chip.className = 'chip';
+  chip.dataset.preset = key;
+  const dot = document.createElement('i');
+  dot.className = 'dot';
+  dot.style.background = `linear-gradient(135deg, ${def.swatch[0]}, ${def.swatch[1]})`;
+  chip.append(dot, document.createTextNode(def.label));
+  chip.addEventListener('click', () => setPreset(key));
+  presetRow.append(chip);
+}
+
+function setPreset(key) {
+  applyPreset(state, key);
+  syncStyleControls();
+  render();
+}
+
+/** Reflects the state's current preset + finish values back into the style controls. */
+function syncStyleControls() {
+  for (const chip of presetRow.children) chip.classList.toggle('on', chip.dataset.preset === state.preset);
+  titleScaleEl.value = Math.round((state.titleScale ?? 1) * 100);
+  titleColorEl.value = state.presetTint.captionFill[1];
+  gradeEl.value = Math.round((state.grade ?? 0.72) * 100);
+  grainEl.value = Math.round((state.grainAmt ?? 0.55) * 100);
+  vignetteEl.value = Math.round((state.vignetteAmt ?? 0.55) * 100);
+  outlineEl.checked = state.outline !== false;
+  kickerEl.checked = state.kicker !== false;
+  frameEl.checked = state.frame !== false;
+}
+
 function syncCaption() {
   state.lines = captionBox.value.split('\n');
   render();
 }
 captionBox.addEventListener('input', syncCaption);
 
+const titleScaleEl = document.getElementById('titleScale');
+const titleColorEl = document.getElementById('titleColor');
+const gradeEl = document.getElementById('grade');
+const grainEl = document.getElementById('grain');
+const vignetteEl = document.getElementById('vignette');
+const outlineEl = document.getElementById('outline');
+const kickerEl = document.getElementById('kickerOn');
+const frameEl = document.getElementById('frameOn');
+
 const bind = (id, fn) => document.getElementById(id).addEventListener('input', fn);
 bind('titleScale', (e) => { state.titleScale = e.target.value / 100; render(); });
-bind('titleColor', (e) => { state.titleColor = e.target.value; render(); });
+bind('titleColor', (e) => {
+  state.titleColor = e.target.value;
+  if (state.presetTint?.captionFill) state.presetTint.captionFill[1] = e.target.value;
+  render();
+});
 bind('grade', (e) => { state.grade = e.target.value / 100; render(); });
 bind('grain', (e) => { state.grainAmt = e.target.value / 100; render(); });
 bind('vignette', (e) => { state.vignetteAmt = e.target.value / 100; render(); });
@@ -230,6 +277,7 @@ for (const btn of document.querySelectorAll('.exports .btn')) {
 async function boot() {
   fitPanels();
   setLayout(state.layout);
+  syncStyleControls();
   syncCaption();
   render();
 
@@ -239,6 +287,7 @@ async function boot() {
     await runShot(params, {
       setRatio,
       setLayout,
+      setPreset,
       loadSamples,
       applyCaption(lines, opts) {
         captionBox.value = lines.join('\n');
